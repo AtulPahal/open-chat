@@ -1,10 +1,10 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { getAvailableModels, getModelName } from '../lib/providers';
 
-export default function ModelSelector({ apiKeys, currentModel, currentProvider, onSelectModel }) {
+export default function ModelSelector({ apiKeys, currentModel, currentProvider, onSelectModel, dynamicModels, pricingMode }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
-  const models = getAvailableModels(apiKeys);
+  const models = getAvailableModels(apiKeys, dynamicModels, pricingMode);
   const displayName = getModelName(currentModel, currentProvider);
 
   // Group by provider

@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, memo } from 'react';
 import { marked } from 'marked';
 import hljs from 'highlight.js';
 import 'highlight.js/styles/atom-one-dark.css';
@@ -49,7 +49,7 @@ function formatTime(dateStr) {
   catch { return ''; }
 }
 
-export default function Message({ role, content, timestamp, modelName, onCopy, onRegenerate }) {
+const Message = memo(function Message({ role, content, timestamp, modelName, onCopy, onRegenerate }) {
   const html = useMemo(() => {
     if (!content) return '';
     if (role === 'assistant') {
@@ -89,9 +89,11 @@ export default function Message({ role, content, timestamp, modelName, onCopy, o
       </div>
     </div>
   );
-}
+});
 
-export function StreamingMessage({ content, modelName }) {
+export default Message;
+
+export const StreamingMessage = memo(function StreamingMessage({ content, modelName }) {
   const html = useMemo(() => {
     if (!content) return '';
     try { return marked.parse(content + '\n'); }
@@ -119,4 +121,4 @@ export function StreamingMessage({ content, modelName }) {
       </div>
     </div>
   );
-}
+});

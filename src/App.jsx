@@ -28,18 +28,14 @@ export default function App() {
   const [apiKeys, setApiKeys] = useState(() => {
     const saved = loadSettings();
     return {
-      nvidia: saved.apiKeys?.nvidia || import.meta.env.VITE_NVIDIA_API_KEY || '',
-      openrouter: saved.apiKeys?.openrouter || import.meta.env.VITE_OPENROUTER_API_KEY || '',
-      custom: saved.apiKeys?.custom || import.meta.env.VITE_CUSTOM_API_KEY || '',
+      openrouter: saved.apiKeys?.openrouter || import.meta.env.OPENROUTER_API_KEY || '',
     };
-  });
-  const [customBaseUrl, setCustomBaseUrl] = useState(() => {
-    const saved = loadSettings();
-    return saved.customBaseUrl || import.meta.env.VITE_CUSTOM_BASE_URL || '';
   });
   const [systemPrompt, setSystemPrompt] = useState(() => loadSettings().systemPrompt || '');
   const [currentProvider, setCurrentProvider] = useState(() => loadSettings().currentProvider || '');
   const [currentModel, setCurrentModel] = useState(() => loadSettings().currentModel || '');
+  const [modelPricingMode, setModelPricingMode] = useState(() => loadSettings().modelPricingMode || 'all');
+  const [openRouterModels, setOpenRouterModels] = useState([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
 
@@ -49,7 +45,6 @@ export default function App() {
   const messagesRef = useRef(messages);
   const activeChatIdRef = useRef(activeChatId);
   const apiKeysRef = useRef(apiKeys);
-  const customBaseUrlRef = useRef(customBaseUrl);
   const currentModelRef = useRef(currentModel);
   const currentProviderRef = useRef(currentProvider);
   const systemPromptRef = useRef(systemPrompt);
@@ -59,7 +54,6 @@ export default function App() {
   useEffect(() => { messagesRef.current = messages; }, [messages]);
   useEffect(() => { activeChatIdRef.current = activeChatId; }, [activeChatId]);
   useEffect(() => { apiKeysRef.current = apiKeys; }, [apiKeys]);
-  useEffect(() => { customBaseUrlRef.current = customBaseUrl; }, [customBaseUrl]);
   useEffect(() => { currentModelRef.current = currentModel; }, [currentModel]);
   useEffect(() => { currentProviderRef.current = currentProvider; }, [currentProvider]);
   useEffect(() => { systemPromptRef.current = systemPrompt; }, [systemPrompt]);
@@ -67,18 +61,35 @@ export default function App() {
 
   // Auto-select first model if none selected
   useEffect(() => {
-    const models = getAvailableModels(apiKeys);
+    const models = getAvailableModels(apiKeys, openRouterModels, modelPricingMode);
     if (models.length > 0 && (!currentModel || !models.find(m => m.id === currentModel && m.providerId === currentProvider))) {
       setCurrentProvider(models[0].providerId);
       setCurrentModel(models[0].id);
     }
-  }, [apiKeys]);
+  }, [apiKeys, openRouterModels, modelPricingMode]);
+
+  // Fetch OpenRouter models dynamically
+  useEffect(() => {
+    fetch('https://openrouter.ai/api/v1/models')
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.data) {
+          const models = data.data.map(m => ({
+            id: m.id,
+            name: m.name,
+            isFree: m.pricing?.prompt === "0" && m.pricing?.completion === "0"
+          }));
+          setOpenRouterModels(models);
+        }
+      })
+      .catch(err => console.error('Failed to fetch OpenRouter models:', err));
+  }, []);
 
   // Persist
   useEffect(() => { saveChatsToLS(chats); }, [chats]);
   useEffect(() => {
-    saveSettingsToLS({ apiKeys, customBaseUrl, systemPrompt, currentModel, currentProvider });
-  }, [apiKeys, customBaseUrl, systemPrompt, currentModel, currentProvider]);
+    saveSettingsToLS({ apiKeys, systemPrompt, currentModel, currentProvider, modelPricingMode });
+  }, [apiKeys, systemPrompt, currentModel, currentProvider, modelPricingMode]);
 
   // Load messages on chat switch
   useEffect(() => {
@@ -139,7 +150,6 @@ export default function App() {
     const provider = currentProviderRef.current;
     const model = currentModelRef.current;
     const keys = apiKeysRef.current;
-    const baseUrl = customBaseUrlRef.current;
     const sysPrompt = systemPromptRef.current || 'You are a helpful assistant.';
 
     if (!model || !provider) {
@@ -191,7 +201,6 @@ export default function App() {
       modelId: model,
       messages: apiMessages,
       apiKeys: keys,
-      customBaseUrl: baseUrl,
       onChunk: (text) => {
         accumulated += text;
         setStreamingContent(accumulated);
@@ -301,8 +310,14 @@ export default function App() {
                 <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="3" x2="9" y2="21"/>
               </svg>
             </button>
-            <ModelSelector apiKeys={apiKeys} currentModel={currentModel} currentProvider={currentProvider} onSelectModel={handleSelectModel} />
-          </div>
+            <ModelSelector
+            apiKeys={apiKeys}
+            currentModel={currentModel}
+            currentProvider={currentProvider}
+            onSelectModel={handleSelectModel}
+            dynamicModels={openRouterModels}
+            pricingMode={modelPricingMode}
+          /></div>
           <div className="topbar-right">
             <button className="topbar-btn" onClick={handleNewChat} title="New chat">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -351,11 +366,17 @@ export default function App() {
         <InputBar onSend={doSend} onStop={handleStop} isGenerating={isGenerating} />
       </main>
 
-      <Settings isOpen={settingsOpen} onClose={() => setSettingsOpen(false)}
+      <Settings
+        isOpen={settingsOpen} onClose={() => setSettingsOpen(false)}
         apiKeys={apiKeys} onApiKeysChange={setApiKeys}
-        customBaseUrl={customBaseUrl} onCustomBaseUrlChange={setCustomBaseUrl}
         systemPrompt={systemPrompt} onSystemPromptChange={setSystemPrompt}
-        onExportChats={handleExportChats} onImportChats={handleImportChats} onClearChats={handleClearChats} />
+        dynamicModels={openRouterModels}
+        pricingMode={modelPricingMode} onPricingModeChange={setModelPricingMode}
+        currentModel={currentModel} currentProvider={currentProvider} onSelectModel={handleSelectModel}
+        onExportChats={handleExportChats}
+        onImportChats={handleImportChats}
+        onClearChats={handleClearChats}
+      />
     </div>
   );
 }

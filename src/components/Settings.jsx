@@ -7,10 +7,13 @@ export default function Settings({
   apiKeys, onApiKeysChange,
   customBaseUrl, onCustomBaseUrlChange,
   systemPrompt, onSystemPromptChange,
+  dynamicModels, pricingMode, onPricingModeChange,
+  currentModel, currentProvider, onSelectModel,
   onExportChats, onImportChats, onClearChats
 }) {
   const [activeTab, setActiveTab] = useState('api-keys');
   const [testState, setTestState] = useState({});
+  const [modelSearch, setModelSearch] = useState('');
   const importRef = useRef(null);
 
   if (!isOpen) return null;
@@ -21,13 +24,14 @@ export default function Settings({
 
   const handleTest = async (providerId) => {
     setTestState(s => ({ ...s, [providerId]: 'testing' }));
-    const result = await testConnection(providerId, apiKeys, customBaseUrl);
+    const result = await testConnection(providerId, apiKeys);
     setTestState(s => ({ ...s, [providerId]: result.success ? 'success' : 'error' }));
     showToast(result.success ? `${providerId} connected!` : result.error, result.success ? 'success' : 'error');
     setTimeout(() => setTestState(s => ({ ...s, [providerId]: null })), 3000);
   };
 
-  const models = getAvailableModels(apiKeys);
+  const models = getAvailableModels(apiKeys, dynamicModels, pricingMode)
+    .filter(m => m.name.toLowerCase().includes(modelSearch.toLowerCase()) || m.id.toLowerCase().includes(modelSearch.toLowerCase()));
   const grouped = {};
   models.forEach(m => { if (!grouped[m.provider]) grouped[m.provider] = []; grouped[m.provider].push(m); });
 
@@ -59,23 +63,6 @@ export default function Settings({
         <div className="settings-body">
           {activeTab === 'api-keys' && (
             <>
-              {/* NVIDIA */}
-              <div className="settings-section">
-                <h3 className="settings-section-title">NVIDIA NIM</h3>
-                <div className="settings-field">
-                  <label className="settings-label">API Key</label>
-                  <div className="settings-input-group">
-                    <input type="password" className="settings-input" placeholder="nvapi-…"
-                      value={apiKeys.nvidia || ''} onChange={e => handleKeyChange('nvidia', e.target.value)} />
-                    <button className={`btn-test${testState.nvidia === 'success' ? ' success' : testState.nvidia === 'error' ? ' error' : ''}`}
-                      onClick={() => handleTest('nvidia')}>
-                      {testState.nvidia === 'testing' ? 'Testing…' : testState.nvidia === 'success' ? '✓ OK' : testState.nvidia === 'error' ? '✗ Failed' : 'Test'}
-                    </button>
-                  </div>
-                  <p className="settings-hint">Get your key at <a href="https://build.nvidia.com/" target="_blank" rel="noopener" style={{ color: 'var(--color-info)', textDecoration: 'underline' }}>build.nvidia.com</a></p>
-                </div>
-              </div>
-
               {/* OpenRouter */}
               <div className="settings-section">
                 <h3 className="settings-section-title">OpenRouter</h3>
@@ -92,42 +79,41 @@ export default function Settings({
                   <p className="settings-hint">Get your key at <a href="https://openrouter.ai/keys" target="_blank" rel="noopener" style={{ color: 'var(--color-info)', textDecoration: 'underline' }}>openrouter.ai/keys</a></p>
                 </div>
               </div>
-
-              {/* Custom */}
-              <div className="settings-section">
-                <h3 className="settings-section-title">OpenAI-Compatible</h3>
-                <div className="settings-field">
-                  <label className="settings-label">API Key</label>
-                  <div className="settings-input-group">
-                    <input type="password" className="settings-input" placeholder="sk-…"
-                      value={apiKeys.custom || ''} onChange={e => handleKeyChange('custom', e.target.value)} />
-                    <button className={`btn-test${testState.custom === 'success' ? ' success' : testState.custom === 'error' ? ' error' : ''}`}
-                      onClick={() => handleTest('custom')}>
-                      {testState.custom === 'testing' ? 'Testing…' : testState.custom === 'success' ? '✓ OK' : testState.custom === 'error' ? '✗ Failed' : 'Test'}
-                    </button>
-                  </div>
-                </div>
-                <div className="settings-field">
-                  <label className="settings-label">Base URL</label>
-                  <input type="url" className="settings-input" placeholder="https://api.openai.com/v1"
-                    value={customBaseUrl || ''} onChange={e => onCustomBaseUrlChange(e.target.value)} />
-                  <p className="settings-hint">Works with OpenAI, Ollama (http://localhost:11434/v1), LM Studio, etc.</p>
-                </div>
-              </div>
             </>
           )}
 
           {activeTab === 'models' && (
             <div className="settings-section">
-              <h3 className="settings-section-title">Available Models</h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-12)', marginBottom: 'var(--space-16)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <h3 className="settings-section-title" style={{ marginBottom: 0 }}>Available Models</h3>
+                  <select className="settings-input" style={{ width: 'auto', padding: '4px 8px', fontSize: '13px' }}
+                    value={pricingMode} onChange={e => onPricingModeChange(e.target.value)}>
+                    <option value="all">All Models</option>
+                    <option value="free">Free Models Only</option>
+                    <option value="paid">Paid Models Only</option>
+                  </select>
+                </div>
+                <input 
+                  type="text" 
+                  className="settings-input" 
+                  placeholder="Search models..." 
+                  value={modelSearch} 
+                  onChange={e => setModelSearch(e.target.value)} 
+                />
+              </div>
+              
               {models.length === 0 ? (
-                <p style={{ color: 'var(--color-text-tertiary)', fontSize: 'var(--text-body-sm)' }}>No models available. Configure API keys first — only providers with a key will show their models.</p>
+                <p style={{ color: 'var(--color-text-tertiary)', fontSize: 'var(--text-body-sm)' }}>No models available. Configure API keys or change the pricing filter.</p>
               ) : (
                 Object.entries(grouped).map(([provider, providerModels]) => (
                   <div key={provider} style={{ marginBottom: 'var(--space-16)' }}>
                     <h4 style={{ fontSize: 'var(--text-body-sm)', fontWeight: 'var(--weight-medium)', color: 'var(--color-text-secondary)', marginBottom: 'var(--space-8)' }}>{provider}</h4>
                     {providerModels.map(m => (
-                      <div key={m.id} className="model-option">
+                      <div key={m.id} 
+                        className={`model-option${m.id === currentModel && m.providerId === currentProvider ? ' selected' : ''}`}
+                        onClick={() => { onSelectModel(m.id, m.providerId); showToast(`Selected ${m.name}`, 'success'); }}
+                      >
                         <span className="model-option-name">{m.name}</span>
                         <span className="model-option-id">{m.id}</span>
                       </div>
