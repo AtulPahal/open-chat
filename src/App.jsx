@@ -3,19 +3,19 @@ import Sidebar from './components/Sidebar';
 import Settings from './components/Settings';
 import ModelSelector from './components/ModelSelector';
 import Message, { StreamingMessage } from './components/Message';
-import { getModelName, getAvailableModels, streamChat } from './lib/providers';
+import { getModelName, getAvailableModels, streamChat, getProviders } from './lib/providers';
 import { showToast } from './lib/toast';
 
 const genId = () => crypto.randomUUID?.() || Math.random().toString(36).slice(2, 10);
 
 function loadChats() {
-  try { return JSON.parse(localStorage.getItem('nexuschat_chats') || '[]'); } catch { return []; }
+  try { return JSON.parse(localStorage.getItem('openchat_chats') || '[]'); } catch { return []; }
 }
-function saveChatsToLS(chats) { localStorage.setItem('nexuschat_chats', JSON.stringify(chats)); }
+function saveChatsToLS(chats) { localStorage.setItem('openchat_chats', JSON.stringify(chats)); }
 function loadSettings() {
-  try { return JSON.parse(localStorage.getItem('nexuschat_settings') || '{}'); } catch { return {}; }
+  try { return JSON.parse(localStorage.getItem('openchat_settings') || '{}'); } catch { return {}; }
 }
-function saveSettingsToLS(s) { localStorage.setItem('nexuschat_settings', JSON.stringify(s)); }
+function saveSettingsToLS(s) { localStorage.setItem('openchat_settings', JSON.stringify(s)); }
 
 export default function App() {
   const [chats, setChats] = useState(() => loadChats());
@@ -28,7 +28,13 @@ export default function App() {
   const [apiKeys, setApiKeys] = useState(() => {
     const saved = loadSettings();
     return {
-      openrouter: saved.apiKeys?.openrouter || import.meta.env.OPENROUTER_API_KEY || '',
+      openrouter: saved.apiKeys?.openrouter || import.meta.env.VITE_OPENROUTER_API_KEY || '',
+      openai: saved.apiKeys?.openai || import.meta.env.VITE_OPENAI_API_KEY || '',
+      google: saved.apiKeys?.google || import.meta.env.VITE_GOOGLE_API_KEY || '',
+      nvidia: saved.apiKeys?.nvidia || import.meta.env.VITE_NVIDIA_API_KEY || '',
+      groq: saved.apiKeys?.groq || import.meta.env.VITE_GROQ_API_KEY || '',
+      anthropic: saved.apiKeys?.anthropic || import.meta.env.VITE_ANTHROPIC_API_KEY || '',
+      opencode: saved.apiKeys?.opencode || import.meta.env.VITE_OPENCODE_API_KEY || '',
     };
   });
   const [systemPrompt, setSystemPrompt] = useState(() => loadSettings().systemPrompt || '');
@@ -140,6 +146,16 @@ export default function App() {
     setCurrentProvider(providerId);
   }, []);
 
+  const handleSelectProvider = useCallback((providerId) => {
+    setCurrentProvider(providerId);
+    const available = getAvailableModels(apiKeysRef.current, openRouterModels, modelPricingMode).filter(m => m.providerId === providerId);
+    if (available.length > 0) {
+      setCurrentModel(available[0].id);
+    } else {
+      setCurrentModel('');
+    }
+  }, [openRouterModels, modelPricingMode]);
+
   // =============================================
   // THE CORE SEND — uses REFS to avoid stale data
   // =============================================
@@ -193,7 +209,7 @@ export default function App() {
       ...updatedMessages.slice(-20).map(m => ({ role: m.role, content: m.content }))
     ];
 
-    console.log('[NexusChat] Sending to', provider, model, 'messages:', apiMessages.length);
+    console.log('[OpenChat] Sending to', provider, model, 'messages:', apiMessages.length);
 
     let accumulated = '';
     const controller = streamChat({
@@ -207,7 +223,7 @@ export default function App() {
         scrollToBottom();
       },
       onDone: () => {
-        console.log('[NexusChat] Stream done, accumulated length:', accumulated.length);
+        console.log('[OpenChat] Stream done, accumulated length:', accumulated.length);
         const assistantMsg = { role: 'assistant', content: accumulated || '(empty response)', timestamp: new Date().toISOString() };
         const finalMessages = [...updatedMessages, assistantMsg];
         setMessages(finalMessages);
@@ -217,7 +233,7 @@ export default function App() {
         scrollToBottom();
       },
       onError: (err) => {
-        console.error('[NexusChat] Stream error:', err);
+        console.error('[OpenChat] Stream error:', err);
         showToast(err.message, 'error');
         setIsGenerating(false);
         setStreamingContent('');
@@ -262,7 +278,7 @@ export default function App() {
   const handleExportChats = () => {
     const blob = new Blob([JSON.stringify({ chats }, null, 2)], { type: 'application/json' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-    a.download = `nexuschat-export-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `openchat-export-${new Date().toISOString().slice(0, 10)}.json`;
     a.click(); URL.revokeObjectURL(a.href);
     showToast('Exported!', 'success');
   };
@@ -304,20 +320,28 @@ export default function App() {
 
       <main className="main-area">
         <div className="topbar">
-          <div className="topbar-left">
+          <div className="topbar-left" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             <button className="topbar-toggle-btn" onClick={() => setSidebarCollapsed(s => !s)} title="Toggle sidebar">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="3" x2="9" y2="21"/>
               </svg>
             </button>
-            <ModelSelector
-            apiKeys={apiKeys}
-            currentModel={currentModel}
-            currentProvider={currentProvider}
-            onSelectModel={handleSelectModel}
-            dynamicModels={openRouterModels}
-            pricingMode={modelPricingMode}
-          /></div>
+            <select className="settings-input" style={{ width: 'auto', padding: '6px 10px', fontSize: '13px', margin: 0, cursor: 'pointer' }}
+              value={currentProvider} onChange={e => handleSelectProvider(e.target.value)}>
+              {Object.values(getProviders()).filter(p => apiKeys[p.id]).length === 0 && <option value="">No API Keys Configured</option>}
+              {Object.values(getProviders()).filter(p => apiKeys[p.id]).map(p => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+            <select className="settings-input" style={{ width: 'auto', padding: '6px 10px', fontSize: '13px', margin: 0, cursor: 'pointer' }}
+              value={currentModel} onChange={e => handleSelectModel(e.target.value, currentProvider)} disabled={!currentProvider}>
+              {getAvailableModels(apiKeys, openRouterModels, modelPricingMode)
+                .filter(m => m.providerId === currentProvider)
+                .map(m => (
+                  <option key={m.id} value={m.id}>{m.name}</option>
+              ))}
+            </select>
+          </div>
           <div className="topbar-right">
             <button className="topbar-btn" onClick={handleNewChat} title="New chat">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -335,7 +359,7 @@ export default function App() {
                   <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
                 </svg>
               </div>
-              <h1 className="welcome-model-name">{modelName || 'NexusChat'}</h1>
+              <h1 className="welcome-model-name">{modelName || 'OpenChat'}</h1>
               <div className="welcome-suggestions">
                 <div className="welcome-suggestion-label">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

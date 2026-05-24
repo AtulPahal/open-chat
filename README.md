@@ -1,4 +1,4 @@
-# ⚡ NexusChat — API AI Assistant
+# ⚡ OpenChat — API AI Assistant
 
 A premium, dark-themed AI chat interface built with **React + Vite** that connects to OpenRouter. Access top-tier models like GPT-4o, Claude 3.5 Sonnet, and DeepSeek all from one sleek UI.
 
@@ -11,7 +11,7 @@ A premium, dark-themed AI chat interface built with **React + Vite** that connec
 ## ✨ Features
 
 - **OpenRouter Support** — Connect to OpenRouter to access multiple LLMs via a single API key
-- **Premium Models** — GPT-4o, Claude 3.5 Sonnet, Gemini 2.5, Llama 3.3, and DeepSeek V3/R1
+- **Premium Models** — GPT-4o, Claude 3.5 Sonnet, Gemini 2.5, Llama 3.3, and DeepSeek V4
 - **Free Models** — Llama 3 8B via OpenRouter at zero cost
 - **Real-Time Streaming** — Responses stream in token-by-token via SSE
 - **Markdown Rendering** — Full GFM support with syntax-highlighted code blocks and one-click copy
@@ -33,8 +33,8 @@ A premium, dark-themed AI chat interface built with **React + Vite** that connec
 ### 1. Clone & Install
 
 ```bash
-git clone https://github.com/your-username/nexuschat.git
-cd nexuschat
+git clone https://github.com/your-username/openchat.git
+cd openchat
 npm install
 ```
 
@@ -67,7 +67,7 @@ Open [http://localhost:5173](http://localhost:5173)
 
 ## 🔑 Supported Models
 
-Through OpenRouter, NexusChat supports top industry models out of the box:
+Through OpenRouter, OpenChat supports top industry models out of the box:
 
 | Model | Provider |
 |-------|----------|
@@ -76,8 +76,7 @@ Through OpenRouter, NexusChat supports top industry models out of the box:
 | Claude 3.5 Sonnet | Anthropic |
 | Gemini 2.5 Pro | Google |
 | Gemini 2.5 Flash | Google |
-| DeepSeek V3 | DeepSeek |
-| DeepSeek R1 | DeepSeek |
+| DeepSeek V4 Flash | DeepSeek |
 | Llama 3.3 70B | Meta |
 | Llama 3 8B ⚡ Free | Meta |
 | Mistral Large | Mistral |
@@ -87,7 +86,7 @@ Through OpenRouter, NexusChat supports top industry models out of the box:
 ## 📁 Project Structure
 
 ```
-nexuschat/
+openchat/
 ├── .env                          # API keys (gitignored)
 ├── .env.example                  # Template for API keys
 ├── index.html                    # HTML entry point
@@ -160,4 +159,4 @@ npx serve dist
 
 ## 📄 License
 
-MIT © NexusChat
+MIT © OpenChat

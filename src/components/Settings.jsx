@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { getAvailableModels, testConnection } from '../lib/providers';
+import { getAvailableModels, testConnection, getProviders } from '../lib/providers';
 import { showToast } from '../lib/toast';
 
 export default function Settings({
@@ -62,24 +62,27 @@ export default function Settings({
 
         <div className="settings-body">
           {activeTab === 'api-keys' && (
-            <>
-              {/* OpenRouter */}
-              <div className="settings-section">
-                <h3 className="settings-section-title">OpenRouter</h3>
-                <div className="settings-field">
-                  <label className="settings-label">API Key</label>
-                  <div className="settings-input-group">
-                    <input type="password" className="settings-input" placeholder="sk-or-v1-…"
-                      value={apiKeys.openrouter || ''} onChange={e => handleKeyChange('openrouter', e.target.value)} />
-                    <button className={`btn-test${testState.openrouter === 'success' ? ' success' : testState.openrouter === 'error' ? ' error' : ''}`}
-                      onClick={() => handleTest('openrouter')}>
-                      {testState.openrouter === 'testing' ? 'Testing…' : testState.openrouter === 'success' ? '✓ OK' : testState.openrouter === 'error' ? '✗ Failed' : 'Test'}
-                    </button>
+            <div className="settings-api-keys-list" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-24)' }}>
+              {Object.values(getProviders()).map(provider => (
+                <div className="settings-section" key={provider.id}>
+                  <h3 className="settings-section-title">{provider.name}</h3>
+                  <div className="settings-field">
+                    <label className="settings-label">API Key</label>
+                    <div className="settings-input-group">
+                      <input type="password" className="settings-input" placeholder={`Enter ${provider.name} API Key...`}
+                        value={apiKeys[provider.id] || ''} onChange={e => handleKeyChange(provider.id, e.target.value)} />
+                      <button className={`btn-test${testState[provider.id] === 'success' ? ' success' : testState[provider.id] === 'error' ? ' error' : ''}`}
+                        onClick={() => handleTest(provider.id)}>
+                        {testState[provider.id] === 'testing' ? 'Testing…' : testState[provider.id] === 'success' ? '✓ OK' : testState[provider.id] === 'error' ? '✗ Failed' : 'Test'}
+                      </button>
+                    </div>
+                    {provider.link && (
+                      <p className="settings-hint">Get your key at <a href={provider.link} target="_blank" rel="noopener" style={{ color: 'var(--color-info)', textDecoration: 'underline' }}>{provider.link.replace('https://', '')}</a></p>
+                    )}
                   </div>
-                  <p className="settings-hint">Get your key at <a href="https://openrouter.ai/keys" target="_blank" rel="noopener" style={{ color: 'var(--color-info)', textDecoration: 'underline' }}>openrouter.ai/keys</a></p>
                 </div>
-              </div>
-            </>
+              ))}
+            </div>
           )}
 
           {activeTab === 'models' && (
