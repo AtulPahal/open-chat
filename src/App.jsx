@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import TextareaAutosize from 'react-textarea-autosize';
+import { Send, Square, Menu, Plus, Compass, Paperclip, FolderPlus, X, File, Image as ImageIcon } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import Settings from './components/Settings';
 import ModelSelector from './components/ModelSelector';
 import Message, { StreamingMessage } from './components/Message';
-import { getModelName, getAvailableModels, streamChat, getProviders } from './lib/providers';
+import { getModelName, getAvailableModels, streamChat, getProviders, fetchProviderModels } from './lib/providers';
 import { showToast } from './lib/toast';
 
 const genId = () => crypto.randomUUID?.() || Math.random().toString(36).slice(2, 10);
@@ -11,11 +13,23 @@ const genId = () => crypto.randomUUID?.() || Math.random().toString(36).slice(2,
 function loadChats() {
   try { return JSON.parse(localStorage.getItem('openchat_chats') || '[]'); } catch { return []; }
 }
-function saveChatsToLS(chats) { localStorage.setItem('openchat_chats', JSON.stringify(chats)); }
+function saveChatsToLS(chats) {
+  try {
+    localStorage.setItem('openchat_chats', JSON.stringify(chats));
+  } catch (e) {
+    console.error('Storage limit reached for chats');
+  }
+}
 function loadSettings() {
   try { return JSON.parse(localStorage.getItem('openchat_settings') || '{}'); } catch { return {}; }
 }
-function saveSettingsToLS(s) { localStorage.setItem('openchat_settings', JSON.stringify(s)); }
+function saveSettingsToLS(s) {
+  try {
+    localStorage.setItem('openchat_settings', JSON.stringify(s));
+  } catch (e) {
+    console.error('Storage limit reached for settings');
+  }
+}
 
 export default function App() {
   const [chats, setChats] = useState(() => loadChats());
@@ -28,20 +42,20 @@ export default function App() {
   const [apiKeys, setApiKeys] = useState(() => {
     const saved = loadSettings();
     return {
-      openrouter: saved.apiKeys?.openrouter || import.meta.env.VITE_OPENROUTER_API_KEY || '',
-      openai: saved.apiKeys?.openai || import.meta.env.VITE_OPENAI_API_KEY || '',
-      google: saved.apiKeys?.google || import.meta.env.VITE_GOOGLE_API_KEY || '',
-      nvidia: saved.apiKeys?.nvidia || import.meta.env.VITE_NVIDIA_API_KEY || '',
-      groq: saved.apiKeys?.groq || import.meta.env.VITE_GROQ_API_KEY || '',
-      anthropic: saved.apiKeys?.anthropic || import.meta.env.VITE_ANTHROPIC_API_KEY || '',
-      opencode: saved.apiKeys?.opencode || import.meta.env.VITE_OPENCODE_API_KEY || '',
+      openrouter: saved.apiKeys?.openrouter || '',
+      openai: saved.apiKeys?.openai || '',
+      google: saved.apiKeys?.google || '',
+      nvidia: saved.apiKeys?.nvidia || '',
+      groq: saved.apiKeys?.groq || '',
+      anthropic: saved.apiKeys?.anthropic || '',
+      opencode: saved.apiKeys?.opencode || '',
     };
   });
   const [systemPrompt, setSystemPrompt] = useState(() => loadSettings().systemPrompt || '');
   const [currentProvider, setCurrentProvider] = useState(() => loadSettings().currentProvider || '');
   const [currentModel, setCurrentModel] = useState(() => loadSettings().currentModel || '');
   const [modelPricingMode, setModelPricingMode] = useState(() => loadSettings().modelPricingMode || 'all');
-  const [openRouterModels, setOpenRouterModels] = useState([]);
+  const [fetchedModels, setFetchedModels] = useState({});
   const [isGenerating, setIsGenerating] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
 
@@ -67,29 +81,37 @@ export default function App() {
 
   // Auto-select first model if none selected
   useEffect(() => {
-    const models = getAvailableModels(apiKeys, openRouterModels, modelPricingMode);
+    const models = getAvailableModels(apiKeys, fetchedModels, modelPricingMode);
     if (models.length > 0 && (!currentModel || !models.find(m => m.id === currentModel && m.providerId === currentProvider))) {
       setCurrentProvider(models[0].providerId);
       setCurrentModel(models[0].id);
     }
-  }, [apiKeys, openRouterModels, modelPricingMode]);
+  }, [apiKeys, fetchedModels, modelPricingMode]);
 
-  // Fetch OpenRouter models dynamically
+  // Fetch models dynamically for all configured providers
   useEffect(() => {
-    fetch('https://openrouter.ai/api/v1/models')
-      .then(res => res.json())
-      .then(data => {
-        if (data && data.data) {
-          const models = data.data.map(m => ({
-            id: m.id,
-            name: m.name,
-            isFree: m.pricing?.prompt === "0" && m.pricing?.completion === "0"
-          }));
-          setOpenRouterModels(models);
+    const fetchAllModels = async () => {
+      const newFetched = { ...fetchedModels };
+      let updated = false;
+
+      for (const [providerId] of Object.entries(getProviders())) {
+        const apiKey = apiKeys[providerId];
+        if (!apiKey) continue;
+
+        const models = await fetchProviderModels(providerId, apiKey);
+        if (models && models.length > 0) {
+          newFetched[providerId] = models;
+          updated = true;
         }
-      })
-      .catch(err => console.error('Failed to fetch OpenRouter models:', err));
-  }, []);
+      }
+
+      if (updated) {
+        setFetchedModels(newFetched);
+      }
+    };
+
+    fetchAllModels();
+  }, [apiKeys]);
 
   // Persist
   useEffect(() => { saveChatsToLS(chats); }, [chats]);
@@ -141,6 +163,10 @@ export default function App() {
     setChats(prev => prev.map(c => c.id === chatId ? { ...c, title: newTitle } : c));
   }, []);
 
+  const handleTogglePinChat = useCallback((chatId) => {
+    setChats(prev => prev.map(c => c.id === chatId ? { ...c, isPinned: !c.isPinned } : c));
+  }, []);
+
   const handleSelectModel = useCallback((modelId, providerId) => {
     setCurrentModel(modelId);
     setCurrentProvider(providerId);
@@ -148,19 +174,19 @@ export default function App() {
 
   const handleSelectProvider = useCallback((providerId) => {
     setCurrentProvider(providerId);
-    const available = getAvailableModels(apiKeysRef.current, openRouterModels, modelPricingMode).filter(m => m.providerId === providerId);
+    const available = getAvailableModels(apiKeysRef.current, fetchedModels, modelPricingMode).filter(m => m.providerId === providerId);
     if (available.length > 0) {
       setCurrentModel(available[0].id);
     } else {
       setCurrentModel('');
     }
-  }, [openRouterModels, modelPricingMode]);
+  }, [fetchedModels, modelPricingMode]);
 
   // =============================================
   // THE CORE SEND — uses REFS to avoid stale data
   // =============================================
-  const doSend = useCallback((userText) => {
-    if (!userText.trim()) return;
+  const doSend = useCallback((userText, attachments = []) => {
+    if (!userText.trim() && attachments.length === 0) return;
     if (isGeneratingRef.current) return;
 
     const provider = currentProviderRef.current;
@@ -179,7 +205,7 @@ export default function App() {
     }
 
     const now = new Date().toISOString();
-    const userMsg = { role: 'user', content: userText.trim(), timestamp: now };
+    const userMsg = { role: 'user', content: userText.trim(), attachments, timestamp: now };
 
     let chatId = activeChatIdRef.current;
     let updatedMessages;
@@ -206,17 +232,37 @@ export default function App() {
 
     const apiMessages = [
       { role: 'system', content: sysPrompt },
-      ...updatedMessages.slice(-20).map(m => ({ role: m.role, content: m.content }))
+      ...updatedMessages.slice(-20).map(m => {
+        if (m.role === 'user' && m.attachments?.length > 0) {
+           let finalContent = m.content;
+           const texts = m.attachments.filter(a => a.type === 'text');
+           const images = m.attachments.filter(a => a.type === 'image');
+           if (texts.length > 0) {
+             finalContent += (finalContent ? '\n\n' : '') + texts.map(t => `--- File: ${t.name} ---\n${t.content}`).join('\n\n');
+           }
+           if (images.length > 0) {
+             return { role: 'user', content: [
+               { type: 'text', text: finalContent || 'Image attached' },
+               ...images.map(img => ({ type: 'image_url', image_url: { url: img.content } }))
+             ]};
+           }
+           return { role: 'user', content: finalContent };
+        }
+        return { role: m.role, content: m.content };
+      })
     ];
 
     console.log('[OpenChat] Sending to', provider, model, 'messages:', apiMessages.length);
 
     let accumulated = '';
-    const controller = streamChat({
+    abortRef.current = new AbortController();
+    
+    streamChat({
       providerId: provider,
       modelId: model,
       messages: apiMessages,
       apiKeys: keys,
+      signal: abortRef.current.signal,
       onChunk: (text) => {
         accumulated += text;
         setStreamingContent(accumulated);
@@ -239,8 +285,6 @@ export default function App() {
         setStreamingContent('');
       }
     });
-
-    abortRef.current = controller;
   }, [scrollToBottom]);
 
   const handleStop = useCallback(() => {
@@ -298,7 +342,7 @@ export default function App() {
     }
   };
 
-  const modelName = getModelName(currentModel, currentProvider);
+  const modelName = getModelName(currentModel, currentProvider, fetchedModels);
   const showWelcome = !activeChatId && messages.length === 0;
 
   const suggestions = [
@@ -307,24 +351,74 @@ export default function App() {
     { title: 'Best practices for REST APIs', desc: 'design patterns and security', prompt: 'What are the best practices for building REST APIs?' },
   ];
 
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    const saved = localStorage.getItem('openchat_sidebar_width');
+    return saved ? parseInt(saved, 10) : 260;
+  });
+  const isResizing = useRef(false);
+  const appRef = useRef(null);
+
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (!isResizing.current) return;
+      let newWidth = e.clientX;
+      if (newWidth < 200) newWidth = 200;
+      if (newWidth > 400) newWidth = 400;
+      
+      // Mutate DOM directly to avoid React re-renders on every pixel move (60fps smooth)
+      if (appRef.current) {
+        appRef.current.style.setProperty('--sidebar-width', `${newWidth}px`);
+      }
+    };
+    
+    const handleMouseUp = (e) => {
+      if (isResizing.current) {
+        isResizing.current = false;
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        if (appRef.current) appRef.current.classList.remove('is-resizing');
+        
+        let finalWidth = e.clientX;
+        if (finalWidth < 200) finalWidth = 200;
+        if (finalWidth > 400) finalWidth = 400;
+        
+        // Save to state and local storage once drag is complete
+        setSidebarWidth(finalWidth);
+        localStorage.setItem('openchat_sidebar_width', finalWidth.toString());
+      }
+    };
+
+    document.addEventListener('mousemove', handleMouseMove, { passive: true });
+    document.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
+
   return (
-    <div className={`app${sidebarCollapsed ? ' sidebar-collapsed' : ''}`}>
+    <div ref={appRef} className={`app${sidebarCollapsed ? ' sidebar-collapsed' : ''}`} style={{ '--sidebar-width': `${sidebarWidth}px` }}>
       <Sidebar
         chats={chats} activeChatId={activeChatId} sidebarCollapsed={sidebarCollapsed}
         onToggleSidebar={() => setSidebarCollapsed(s => !s)}
         onNewChat={handleNewChat} onSelectChat={handleSelectChat}
         onDeleteChat={handleDeleteChat} onRenameChat={handleRenameChat}
+        onTogglePinChat={handleTogglePinChat}
         onOpenSettings={() => setSettingsOpen(true)}
         searchQuery={searchQuery} onSearchChange={setSearchQuery}
+        onResizeStart={() => {
+          isResizing.current = true;
+          document.body.style.cursor = 'col-resize';
+          document.body.style.userSelect = 'none';
+          if (appRef.current) appRef.current.classList.add('is-resizing');
+        }}
       />
 
       <main className="main-area">
         <div className="topbar">
           <div className="topbar-left" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             <button className="topbar-toggle-btn" onClick={() => setSidebarCollapsed(s => !s)} title="Toggle sidebar">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="3" x2="9" y2="21"/>
-              </svg>
+              <Menu size={20} />
             </button>
             <select className="settings-input" style={{ width: 'auto', padding: '6px 10px', fontSize: '13px', margin: 0, cursor: 'pointer' }}
               value={currentProvider} onChange={e => handleSelectProvider(e.target.value)}>
@@ -335,7 +429,7 @@ export default function App() {
             </select>
             <select className="settings-input" style={{ width: 'auto', padding: '6px 10px', fontSize: '13px', margin: 0, cursor: 'pointer' }}
               value={currentModel} onChange={e => handleSelectModel(e.target.value, currentProvider)} disabled={!currentProvider}>
-              {getAvailableModels(apiKeys, openRouterModels, modelPricingMode)
+              {getAvailableModels(apiKeys, fetchedModels, modelPricingMode)
                 .filter(m => m.providerId === currentProvider)
                 .map(m => (
                   <option key={m.id} value={m.id}>{m.name}</option>
@@ -344,9 +438,7 @@ export default function App() {
           </div>
           <div className="topbar-right">
             <button className="topbar-btn" onClick={handleNewChat} title="New chat">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
-              </svg>
+              <Plus size={18} />
             </button>
           </div>
         </div>
@@ -378,7 +470,7 @@ export default function App() {
           ) : (
             <div className="chat-messages">
               {messages.map((msg, i) => (
-                <Message key={`${activeChatId}-${i}`} role={msg.role} content={msg.content} timestamp={msg.timestamp}
+                <Message key={`${activeChatId}-${i}`} role={msg.role} content={msg.content} attachments={msg.attachments} timestamp={msg.timestamp}
                   modelName={modelName} onCopy={handleCopy}
                   onRegenerate={msg.role === 'assistant' && i === messages.length - 1 ? handleRegenerate : undefined} />
               ))}
@@ -394,7 +486,7 @@ export default function App() {
         isOpen={settingsOpen} onClose={() => setSettingsOpen(false)}
         apiKeys={apiKeys} onApiKeysChange={setApiKeys}
         systemPrompt={systemPrompt} onSystemPromptChange={setSystemPrompt}
-        dynamicModels={openRouterModels}
+        fetchedModels={fetchedModels}
         pricingMode={modelPricingMode} onPricingModeChange={setModelPricingMode}
         currentModel={currentModel} currentProvider={currentProvider} onSelectModel={handleSelectModel}
         onExportChats={handleExportChats}
@@ -407,44 +499,110 @@ export default function App() {
 
 function InputBar({ onSend, onStop, isGenerating }) {
   const [text, setText] = useState('');
+  const [attachments, setAttachments] = useState([]);
   const textareaRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const folderInputRef = useRef(null);
 
   const handleInput = (e) => {
     setText(e.target.value);
-    const ta = textareaRef.current;
-    if (ta) { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 200) + 'px'; }
   };
 
   const send = () => {
-    if (text.trim() && !isGenerating) {
-      onSend(text);
+    if ((text.trim() || attachments.length > 0) && !isGenerating) {
+      onSend(text, attachments);
       setText('');
-      if (textareaRef.current) textareaRef.current.style.height = 'auto';
+      setAttachments([]);
     }
+  };
+
+  const processFiles = async (files) => {
+    const newAttachments = [];
+    const ALLOWED_EXTS = ['.js', '.jsx', '.ts', '.tsx', '.py', '.html', '.css', '.md', '.json', '.txt', '.csv'];
+    for (let file of files) {
+      if (file.webkitRelativePath && (file.webkitRelativePath.includes('.git/') || file.webkitRelativePath.includes('node_modules/'))) continue;
+      if (file.size > 5 * 1024 * 1024) continue; // 5MB limit
+      
+      const isImage = file.type.startsWith('image/');
+      
+      if (isImage) {
+        const reader = new FileReader();
+        const base64 = await new Promise(r => { reader.onload = e => r(e.target.result); reader.readAsDataURL(file); });
+        newAttachments.push({ type: 'image', name: file.name, content: base64, size: file.size });
+      } else {
+        const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+        if (file.type.startsWith('text/') || ALLOWED_EXTS.includes(ext) || file.type === '') {
+          const reader = new FileReader();
+          const textContent = await new Promise(r => { reader.onload = e => r(e.target.result); reader.readAsText(file); });
+          if (typeof textContent === 'string' && !textContent.includes('\x00')) {
+            newAttachments.push({ type: 'text', name: file.webkitRelativePath || file.name, content: textContent, size: file.size });
+          }
+        }
+      }
+    }
+    setAttachments(prev => [...prev, ...newAttachments]);
   };
 
   return (
     <div className="input-area">
       <div className="input-bar">
+        {attachments.length > 0 && (
+          <div className="attachment-preview-area">
+            {attachments.map((att, i) => (
+              <div key={i} className="attachment-item">
+                {att.type === 'image' ? <ImageIcon size={14}/> : <File size={14}/>}
+                <span className="attachment-item-name">{att.name}</span>
+                <button className="attachment-remove-btn" onClick={() => setAttachments(prev => prev.filter((_, idx) => idx !== i))}><X size={10}/></button>
+              </div>
+            ))}
+          </div>
+        )}
         <div className="input-row">
-          <textarea ref={textareaRef} className="input-textarea" placeholder="How can I help you today?"
-            rows={1} value={text} onChange={handleInput}
-            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
-            autoFocus />
+          <input type="file" multiple ref={fileInputRef} style={{display: 'none'}} onChange={e => { processFiles(e.target.files); e.target.value = null; }} />
+          <input type="file" webkitdirectory="" directory="" multiple ref={folderInputRef} style={{display: 'none'}} onChange={e => { processFiles(e.target.files); e.target.value = null; }} />
+          
+          <div className="input-actions" style={{marginRight: '8px'}}>
+            <button className="input-attach-btn" onClick={() => fileInputRef.current?.click()} title="Attach File"><Paperclip size={18} /></button>
+            <button className="input-attach-btn" onClick={() => folderInputRef.current?.click()} title="Attach Folder"><FolderPlus size={18} /></button>
+          </div>
+          <div className="input-col">
+            <TextareaAutosize
+              ref={textareaRef}
+              className="input-textarea"
+              placeholder="Message OpenChat..."
+              minRows={1}
+              maxRows={8}
+              value={text}
+              onChange={handleInput}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  send();
+                }
+              }}
+              autoFocus
+            />
+          </div>
           <div className="input-actions">
             {isGenerating ? (
               <button className="input-stop-btn" onClick={onStop} title="Stop generating">
-                <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+                <Square size={20} fill="currentColor" />
               </button>
             ) : (
-              <button className="input-send-btn" onClick={send} disabled={!text.trim()} title="Send (Enter)">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/>
-                </svg>
+              <button
+                className="input-send-btn"
+                onClick={send}
+                disabled={!text.trim() && attachments.length === 0}
+                title="Send (Enter)"
+              >
+                <Send size={18} />
               </button>
             )}
           </div>
         </div>
+      </div>
+      <div className="input-footer">
+        OpenChat can make mistakes. Check important info.
       </div>
     </div>
   );

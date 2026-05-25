@@ -10,14 +10,14 @@ A premium, dark-themed AI chat interface built with **React + Vite** that connec
 
 ## ✨ Features
 
-- **OpenRouter Support** — Connect to OpenRouter to access multiple LLMs via a single API key
+- **Multi-Provider Support** — Connect to OpenRouter, OpenAI, Google Gemini, NVIDIA, Groq, Anthropic, and OpenCode via a single unified UI
+- **Dynamic Model Synchronization** — Automatically fetches and merges the latest models available from your configured API keys, keeping your dropdown always up-to-date
+- **Multimodal & Context Uploads** — Attach images or inject entire folders of code directly into your prompts seamlessly in your browser
 - **Premium Models** — GPT-4o, Claude 3.5 Sonnet, Gemini 2.5, Llama 3.3, and DeepSeek V4
-- **Free Models** — Llama 3 8B via OpenRouter at zero cost
 - **Real-Time Streaming** — Responses stream in token-by-token via SSE
 - **Markdown Rendering** — Full GFM support with syntax-highlighted code blocks and one-click copy
-- **Chat History** — Persistent sidebar with search, rename, and delete
-- **Model Selector** — Dynamic dropdown to switch between available models
-- **Settings Panel** — Manage API keys and chat data
+- **Secure Architecture** — Strict CSP and safe markdown rendering to prevent XSS
+- **Chat History** — Persistent local storage with search, rename, and delete
 - **Keyboard Shortcuts** — `Ctrl+N` new chat, `Ctrl+/` toggle sidebar
 - **Dark Mode** — Linear-inspired design with glassmorphism, smooth gradients, and micro-animations
 

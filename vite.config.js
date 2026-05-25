@@ -5,15 +5,18 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   envPrefix: ['VITE_', 'OPENROUTER_'],
-  build: {
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          react: ['react', 'react-dom'],
-          highlight: ['highlight.js'],
-          marked: ['marked', 'react-markdown']
-        }
+  server: {
+    proxy: {
+      '/proxy/nvidia': {
+        target: 'https://integrate.api.nvidia.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/proxy\/nvidia/, '')
+      },
+      '/proxy/opencode': {
+        target: 'https://opencode.ai',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/proxy\/opencode/, '')
       }
     }
-  }
+  },
 })

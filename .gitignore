@@ -1,5 +1,10 @@
 dist/
 node_modules/
+.antigravitycli/
 .env
 .env.local
 .env.*.local
+.DS_Store
+.vscode/
+.idea/
+*.txt

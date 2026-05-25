@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { Trash2 } from 'lucide-react';
 import { getAvailableModels, testConnection, getProviders } from '../lib/providers';
 import { showToast } from '../lib/toast';
 
@@ -7,19 +8,27 @@ export default function Settings({
   apiKeys, onApiKeysChange,
   customBaseUrl, onCustomBaseUrlChange,
   systemPrompt, onSystemPromptChange,
-  dynamicModels, pricingMode, onPricingModeChange,
+  fetchedModels, pricingMode, onPricingModeChange,
   currentModel, currentProvider, onSelectModel,
   onExportChats, onImportChats, onClearChats
 }) {
   const [activeTab, setActiveTab] = useState('api-keys');
   const [testState, setTestState] = useState({});
   const [modelSearch, setModelSearch] = useState('');
+  const [providerFilter, setProviderFilter] = useState('all');
   const importRef = useRef(null);
 
   if (!isOpen) return null;
 
   const handleKeyChange = (provider, value) => {
     onApiKeysChange({ ...apiKeys, [provider]: value });
+  };
+
+  const handleDeleteKey = (providerId) => {
+    const newKeys = { ...apiKeys };
+    delete newKeys[providerId]; // Completely remove the key
+    onApiKeysChange(newKeys);
+    showToast(`${getProviders()[providerId].name} API key deleted.`, 'info');
   };
 
   const handleTest = async (providerId) => {
@@ -30,8 +39,9 @@ export default function Settings({
     setTimeout(() => setTestState(s => ({ ...s, [providerId]: null })), 3000);
   };
 
-  const models = getAvailableModels(apiKeys, dynamicModels, pricingMode)
-    .filter(m => m.name.toLowerCase().includes(modelSearch.toLowerCase()) || m.id.toLowerCase().includes(modelSearch.toLowerCase()));
+  const models = getAvailableModels(apiKeys, fetchedModels, pricingMode)
+    .filter(m => m.name.toLowerCase().includes(modelSearch.toLowerCase()) || m.id.toLowerCase().includes(modelSearch.toLowerCase()))
+    .filter(m => providerFilter === 'all' || m.provider === providerFilter);
   const grouped = {};
   models.forEach(m => { if (!grouped[m.provider]) grouped[m.provider] = []; grouped[m.provider].push(m); });
 
@@ -75,9 +85,14 @@ export default function Settings({
                         onClick={() => handleTest(provider.id)}>
                         {testState[provider.id] === 'testing' ? 'Testing…' : testState[provider.id] === 'success' ? '✓ OK' : testState[provider.id] === 'error' ? '✗ Failed' : 'Test'}
                       </button>
+                      {apiKeys[provider.id] && (
+                        <button className="btn-test error" onClick={() => handleDeleteKey(provider.id)} title={`Delete ${provider.name} API Key`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <Trash2 size={14} />
+                        </button>
+                      )}
                     </div>
                     {provider.link && (
-                      <p className="settings-hint">Get your key at <a href={provider.link} target="_blank" rel="noopener" style={{ color: 'var(--color-info)', textDecoration: 'underline' }}>{provider.link.replace('https://', '')}</a></p>
+                      <p className="settings-hint">Get your key at <a href={provider.link} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-info)', textDecoration: 'underline' }}>{provider.link.replace('https://', '')}</a></p>
                     )}
                   </div>
                 </div>
@@ -88,14 +103,23 @@ export default function Settings({
           {activeTab === 'models' && (
             <div className="settings-section">
               <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-12)', marginBottom: 'var(--space-16)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
                   <h3 className="settings-section-title" style={{ marginBottom: 0 }}>Available Models</h3>
-                  <select className="settings-input" style={{ width: 'auto', padding: '4px 8px', fontSize: '13px' }}
-                    value={pricingMode} onChange={e => onPricingModeChange(e.target.value)}>
-                    <option value="all">All Models</option>
-                    <option value="free">Free Models Only</option>
-                    <option value="paid">Paid Models Only</option>
-                  </select>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <select className="settings-input" style={{ width: 'auto', padding: '4px 8px', fontSize: '13px' }}
+                      value={providerFilter} onChange={e => setProviderFilter(e.target.value)}>
+                      <option value="all">All APIs</option>
+                      {Object.values(getProviders()).filter(p => apiKeys[p.id]).map(p => (
+                        <option key={p.id} value={p.name}>{p.name}</option>
+                      ))}
+                    </select>
+                    <select className="settings-input" style={{ width: 'auto', padding: '4px 8px', fontSize: '13px' }}
+                      value={pricingMode} onChange={e => onPricingModeChange(e.target.value)}>
+                      <option value="all">All Models</option>
+                      <option value="free">Free Models Only</option>
+                      <option value="paid">Paid Models Only</option>
+                    </select>
+                  </div>
                 </div>
                 <input 
                   type="text" 
