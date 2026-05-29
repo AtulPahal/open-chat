@@ -1,6 +1,7 @@
 import { useMemo, memo, useState } from 'react';
-import ReactMarkdown from 'react-markdown';
+import ReactMarkdown, { defaultUrlTransform } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import rehypeSanitize from 'rehype-sanitize';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { motion } from 'framer-motion';
@@ -12,13 +13,7 @@ function formatTime(dateStr) {
   catch { return ''; }
 }
 
-const safeUrlTransform = (url) => {
-  const normalized = url.trim().toLowerCase();
-  if (normalized.startsWith('javascript:') || normalized.startsWith('data:') || normalized.startsWith('vbscript:')) {
-    return '';
-  }
-  return url;
-};
+
 
 const CodeBlock = ({ node, inline, className, children, ...props }) => {
   const [copied, setCopied] = useState(false);
@@ -56,6 +51,23 @@ const CodeBlock = ({ node, inline, className, children, ...props }) => {
   return <code className={`inline-code ${className || ''}`} {...props}>{children}</code>;
 };
 
+const downloadAttachment = (att) => {
+  let url = att.content;
+  let revoke = false;
+  if (att.type !== 'image' && !att.content.startsWith('data:')) {
+    const blob = new Blob([att.content], { type: 'text/plain' });
+    url = URL.createObjectURL(blob);
+    revoke = true;
+  }
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = att.name.split('/').pop();
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  if (revoke) URL.revokeObjectURL(url);
+};
+
 const Message = memo(function Message({ role, content, attachments, timestamp, modelName, onRegenerate }) {
   const isAssistant = role === 'assistant';
 
@@ -79,8 +91,9 @@ const Message = memo(function Message({ role, content, attachments, timestamp, m
             {isAssistant ? (
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
+                rehypePlugins={[rehypeSanitize]}
                 components={{ code: CodeBlock }}
-                urlTransform={safeUrlTransform}
+                urlTransform={defaultUrlTransform}
               >
                 {content}
               </ReactMarkdown>
@@ -91,8 +104,8 @@ const Message = memo(function Message({ role, content, attachments, timestamp, m
                   <div className="user-attachments">
                     {attachments.map((att, i) => (
                       att.type === 'image' 
-                        ? <img key={i} src={att.content} className="attachment-thumbnail" alt={att.name} />
-                        : <div key={i} className="attachment-file-pill" title={att.name}><File size={14}/> {att.name.split('/').pop()}</div>
+                        ? <img key={i} src={att.content} className="attachment-thumbnail" alt={att.name} onClick={() => downloadAttachment(att)} style={{ cursor: 'pointer' }} title="Click to download image" />
+                        : <div key={i} className="attachment-file-pill" title={`Download ${att.name}`} onClick={() => downloadAttachment(att)} style={{ cursor: 'pointer' }}><File size={14}/> {att.name.split('/').pop()}</div>
                     ))}
                   </div>
                 )}
@@ -133,8 +146,9 @@ export const StreamingMessage = memo(function StreamingMessage({ content, modelN
             {content ? (
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
+                rehypePlugins={[rehypeSanitize]}
                 components={{ code: CodeBlock }}
-                urlTransform={safeUrlTransform}
+                urlTransform={defaultUrlTransform}
               >
                 {content + ' ▍'}
               </ReactMarkdown>

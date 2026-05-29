@@ -6,8 +6,9 @@ import { showToast } from '../lib/toast';
 export default function Settings({
   isOpen, onClose,
   apiKeys, onApiKeysChange,
-  customBaseUrl, onCustomBaseUrlChange,
   systemPrompt, onSystemPromptChange,
+  memory, onMemoryChange,
+  onDream, isDreaming,
   fetchedModels, pricingMode, onPricingModeChange,
   currentModel, currentProvider, onSelectModel,
   onExportChats, onImportChats, onClearChats
@@ -63,9 +64,9 @@ export default function Settings({
         </div>
 
         <div className="settings-tabs">
-          {['api-keys', 'models', 'general'].map(tab => (
+          {['api-keys', 'models', 'general', 'memory'].map(tab => (
             <button key={tab} className={`settings-tab${activeTab === tab ? ' active' : ''}`} onClick={() => setActiveTab(tab)}>
-              {tab === 'api-keys' ? 'API Keys' : tab === 'models' ? 'Models' : 'General'}
+              {tab === 'api-keys' ? 'API Keys' : tab === 'models' ? 'Models' : tab === 'memory' ? 'Memory' : 'General'}
             </button>
           ))}
         </div>
@@ -171,6 +172,34 @@ export default function Settings({
                 </div>
               </div>
             </>
+          )}
+
+          {activeTab === 'memory' && (
+            <div className="settings-section">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-8)' }}>
+                <h3 className="settings-section-title" style={{ marginBottom: 0 }}>Dream Memory</h3>
+                <button 
+                  className="btn-secondary btn-sm" 
+                  onClick={onDream} 
+                  disabled={isDreaming}
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--color-primary)' }}
+                >
+                  {isDreaming ? 'Consolidating...' : 'Run Dream Consolidation'}
+                </button>
+              </div>
+              <p className="settings-hint" style={{ marginBottom: 'var(--space-12)' }}>
+                Dream reads your recent chats and extracts facts, preferences, and important context. This memory is automatically injected into new messages so the AI "remembers" you. You can manually edit it below.
+              </p>
+              <div className="settings-field">
+                <textarea 
+                  className="settings-textarea" 
+                  placeholder="No memory saved yet. Run Dream or type here..." 
+                  rows={10}
+                  value={memory || ''} 
+                  onChange={e => onMemoryChange(e.target.value)} 
+                />
+              </div>
+            </div>
           )}
         </div>
       </div>

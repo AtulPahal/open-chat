@@ -18,9 +18,9 @@ function truncate(str, max = 35) {
 }
 
 export default function Sidebar({
-  chats, activeChatId, sidebarCollapsed,
+  chats, activeChatId,
   onToggleSidebar, onNewChat, onSelectChat, onDeleteChat, onRenameChat, onOpenSettings,
-  searchQuery, onSearchChange, onResizeStart, onTogglePinChat
+  searchQuery, onSearchChange, onResizeStart, onTogglePinChat, onDream, isDreaming
 }) {
   const [editingId, setEditingId] = useState(null);
   const [editValue, setEditValue] = useState('');
@@ -63,9 +63,7 @@ export default function Sidebar({
     <aside className="sidebar">
       <div className="sidebar-header">
         <div className="sidebar-brand">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
-          </svg>
+          <img src="/favicon-96x96.png" alt="App Icon" style={{ width: 20, height: 20 }} />
           <span>OpenChat</span>
         </div>
         <button className="icon-btn" onClick={onToggleSidebar} title="Close sidebar (Ctrl+/)">
@@ -195,6 +193,16 @@ export default function Sidebar({
       </div>
 
       <div className="sidebar-footer">
+        <div className="sidebar-user" onClick={onDream} title="Consolidate Memory (Dream)">
+          <div className="sidebar-avatar" style={{ background: 'rgba(255, 255, 255, 0.1)', color: 'var(--color-text)' }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3l1.9 5.8 1.9-5.8a2 2 0 0 1 1.3-1.3l5.8-1.9-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/>
+            </svg>
+          </div>
+          <span className="sidebar-user-name" style={{ color: isDreaming ? 'var(--color-primary)' : 'inherit' }}>
+            {isDreaming ? 'Dreaming...' : 'Dream'}
+          </span>
+        </div>
         <div className="sidebar-user" onClick={onOpenSettings} title="Settings">
           <div className="sidebar-avatar">U</div>
           <span className="sidebar-user-name">Settings</span>

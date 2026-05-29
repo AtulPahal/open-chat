@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
-import { Send, Square, Menu, Plus, Compass, Paperclip, FolderPlus, X, File, Image as ImageIcon } from 'lucide-react';
+import { Send, Square, Menu, Plus, Compass, Paperclip, X, File, Image as ImageIcon } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import Settings from './components/Settings';
 import ModelSelector from './components/ModelSelector';
 import Message, { StreamingMessage } from './components/Message';
-import { getModelName, getAvailableModels, streamChat, getProviders, fetchProviderModels } from './lib/providers';
+import { getModelName, getAvailableModels, streamChat, generateText, getProviders, fetchProviderModels } from './lib/providers';
 import { showToast } from './lib/toast';
 
 const genId = () => crypto.randomUUID?.() || Math.random().toString(36).slice(2, 10);
@@ -55,8 +55,10 @@ export default function App() {
   const [currentProvider, setCurrentProvider] = useState(() => loadSettings().currentProvider || '');
   const [currentModel, setCurrentModel] = useState(() => loadSettings().currentModel || '');
   const [modelPricingMode, setModelPricingMode] = useState(() => loadSettings().modelPricingMode || 'all');
+  const [memory, setMemory] = useState(() => loadSettings().memory || '');
   const [fetchedModels, setFetchedModels] = useState({});
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isDreaming, setIsDreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
 
   // === REFS — always up-to-date values for async callbacks ===
@@ -69,6 +71,7 @@ export default function App() {
   const currentProviderRef = useRef(currentProvider);
   const systemPromptRef = useRef(systemPrompt);
   const isGeneratingRef = useRef(isGenerating);
+  const memoryRef = useRef(memory);
 
   // Keep refs in sync
   useEffect(() => { messagesRef.current = messages; }, [messages]);
@@ -78,6 +81,7 @@ export default function App() {
   useEffect(() => { currentProviderRef.current = currentProvider; }, [currentProvider]);
   useEffect(() => { systemPromptRef.current = systemPrompt; }, [systemPrompt]);
   useEffect(() => { isGeneratingRef.current = isGenerating; }, [isGenerating]);
+  useEffect(() => { memoryRef.current = memory; }, [memory]);
 
   // Auto-select first model if none selected
   useEffect(() => {
@@ -116,8 +120,8 @@ export default function App() {
   // Persist
   useEffect(() => { saveChatsToLS(chats); }, [chats]);
   useEffect(() => {
-    saveSettingsToLS({ apiKeys, systemPrompt, currentModel, currentProvider, modelPricingMode });
-  }, [apiKeys, systemPrompt, currentModel, currentProvider, modelPricingMode]);
+    saveSettingsToLS({ apiKeys, systemPrompt, currentModel, currentProvider, modelPricingMode, memory });
+  }, [apiKeys, systemPrompt, currentModel, currentProvider, modelPricingMode, memory]);
 
   // Load messages on chat switch
   useEffect(() => {
@@ -149,13 +153,27 @@ export default function App() {
 
   const handleNewChat = useCallback(() => {
     setActiveChatId(null); setMessages([]); setStreamingContent('');
+    if (abortRef.current) {
+      abortRef.current.abort();
+      abortRef.current = null;
+      setIsGenerating(false);
+    }
   }, []);
 
   const handleSelectChat = useCallback((chatId) => setActiveChatId(chatId), []);
 
   const handleDeleteChat = useCallback((chatId) => {
     setChats(prev => prev.filter(c => c.id !== chatId));
-    if (activeChatIdRef.current === chatId) { setActiveChatId(null); setMessages([]); }
+    if (activeChatIdRef.current === chatId) { 
+      setActiveChatId(null); 
+      setMessages([]); 
+      if (abortRef.current) {
+        abortRef.current.abort();
+        abortRef.current = null;
+        setIsGenerating(false);
+        setStreamingContent('');
+      }
+    }
     showToast('Chat deleted', 'success');
   }, []);
 
@@ -181,6 +199,72 @@ export default function App() {
       setCurrentModel('');
     }
   }, [fetchedModels, modelPricingMode]);
+
+  const handleDreamConsolidation = async () => {
+    if (isDreaming) return;
+    
+    const provider = currentProviderRef.current;
+    const model = currentModelRef.current;
+    const keys = apiKeysRef.current;
+    
+    if (!model || !provider) {
+      showToast('Please select a model first for Dream memory consolidation.', 'error');
+      return;
+    }
+    if (!keys[provider]) {
+      showToast(`No API key for ${provider}.`, 'error');
+      return;
+    }
+
+    setIsDreaming(true);
+    showToast('Starting memory consolidation (Dream)...', 'info');
+    
+    try {
+      const recentChats = chats.slice(0, 10);
+      let transcript = '';
+      recentChats.forEach(chat => {
+        transcript += `Chat: ${chat.title}\n`;
+        chat.messages.slice(-20).forEach(msg => {
+          if (msg.role === 'user' || msg.role === 'assistant') {
+            let textContent = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
+            transcript += `${msg.role.toUpperCase()}: ${textContent}\n`;
+          }
+        });
+        transcript += `\n`;
+      });
+      
+      const prompt = `You are a memory consolidation assistant (like a "Dream" sequence). 
+Below is a transcript of recent conversations with the user.
+Your task is to analyze these conversations and extract key facts about the user, their preferences, important context, and decisions.
+Merge this with the existing memory (if any). Do not duplicate information.
+Keep it concise and factual.
+
+Existing Memory:
+${memoryRef.current || 'None'}
+
+Recent Conversations:
+${transcript.slice(0, 50000)}
+
+Output ONLY the new consolidated memory as plain text, no markdown code blocks unless necessary.`;
+
+      const result = await generateText({
+        providerId: provider,
+        modelId: model,
+        messages: [{ role: 'user', content: prompt }],
+        apiKeys: keys
+      });
+      
+      if (result) {
+        setMemory(result);
+        showToast('Dream memory consolidation complete!', 'success');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Dream failed: ' + err.message, 'error');
+    } finally {
+      setIsDreaming(false);
+    }
+  };
 
   // =============================================
   // THE CORE SEND — uses REFS to avoid stale data
@@ -230,8 +314,13 @@ export default function App() {
     setStreamingContent('');
     setTimeout(scrollToBottom, 50);
 
+    let baseSysPrompt = systemPromptRef.current || 'You are a helpful assistant.';
+    if (memoryRef.current) {
+      baseSysPrompt += `\n\n=== USER MEMORY ===\n${memoryRef.current}\n===================\n`;
+    }
+
     const apiMessages = [
-      { role: 'system', content: sysPrompt },
+      { role: 'system', content: baseSysPrompt },
       ...updatedMessages.slice(-20).map(m => {
         if (m.role === 'user' && m.attachments?.length > 0) {
            let finalContent = m.content;
@@ -406,6 +495,7 @@ export default function App() {
         onTogglePinChat={handleTogglePinChat}
         onOpenSettings={() => setSettingsOpen(true)}
         searchQuery={searchQuery} onSearchChange={setSearchQuery}
+        onDream={handleDreamConsolidation} isDreaming={isDreaming}
         onResizeStart={() => {
           isResizing.current = true;
           document.body.style.cursor = 'col-resize';
@@ -447,9 +537,7 @@ export default function App() {
           {showWelcome ? (
             <div className="welcome-screen">
               <div className="welcome-logo">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--color-primary)' }}>
-                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
-                </svg>
+                <img src="/favicon-96x96.png" alt="App Icon" style={{ width: 48, height: 48 }} />
               </div>
               <h1 className="welcome-model-name">{modelName || 'OpenChat'}</h1>
               <div className="welcome-suggestions">
@@ -486,6 +574,8 @@ export default function App() {
         isOpen={settingsOpen} onClose={() => setSettingsOpen(false)}
         apiKeys={apiKeys} onApiKeysChange={setApiKeys}
         systemPrompt={systemPrompt} onSystemPromptChange={setSystemPrompt}
+        memory={memory} onMemoryChange={setMemory}
+        onDream={handleDreamConsolidation} isDreaming={isDreaming}
         fetchedModels={fetchedModels}
         pricingMode={modelPricingMode} onPricingModeChange={setModelPricingMode}
         currentModel={currentModel} currentProvider={currentProvider} onSelectModel={handleSelectModel}
@@ -502,7 +592,6 @@ function InputBar({ onSend, onStop, isGenerating }) {
   const [attachments, setAttachments] = useState([]);
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
-  const folderInputRef = useRef(null);
 
   const handleInput = (e) => {
     setText(e.target.value);
@@ -516,6 +605,33 @@ function InputBar({ onSend, onStop, isGenerating }) {
     }
   };
 
+  const resizeImage = (file, maxWidth = 1024, maxHeight = 1024) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          let { width, height } = img;
+          if (width > maxWidth || height > maxHeight) {
+            const ratio = Math.min(maxWidth / width, maxHeight / height);
+            width *= ratio;
+            height *= ratio;
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', 0.8));
+        };
+        img.onerror = reject;
+        img.src = e.target.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
   const processFiles = async (files) => {
     const newAttachments = [];
     const ALLOWED_EXTS = ['.js', '.jsx', '.ts', '.tsx', '.py', '.html', '.css', '.md', '.json', '.txt', '.csv'];
@@ -526,9 +642,12 @@ function InputBar({ onSend, onStop, isGenerating }) {
       const isImage = file.type.startsWith('image/');
       
       if (isImage) {
-        const reader = new FileReader();
-        const base64 = await new Promise(r => { reader.onload = e => r(e.target.result); reader.readAsDataURL(file); });
-        newAttachments.push({ type: 'image', name: file.name, content: base64, size: file.size });
+        try {
+          const base64 = await resizeImage(file);
+          newAttachments.push({ type: 'image', name: file.name, content: base64, size: file.size });
+        } catch (err) {
+          console.error("Failed to process image", err);
+        }
       } else {
         const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
         if (file.type.startsWith('text/') || ALLOWED_EXTS.includes(ext) || file.type === '') {
@@ -559,11 +678,9 @@ function InputBar({ onSend, onStop, isGenerating }) {
         )}
         <div className="input-row">
           <input type="file" multiple ref={fileInputRef} style={{display: 'none'}} onChange={e => { processFiles(e.target.files); e.target.value = null; }} />
-          <input type="file" webkitdirectory="" directory="" multiple ref={folderInputRef} style={{display: 'none'}} onChange={e => { processFiles(e.target.files); e.target.value = null; }} />
           
-          <div className="input-actions" style={{marginRight: '8px'}}>
+          <div className="input-actions">
             <button className="input-attach-btn" onClick={() => fileInputRef.current?.click()} title="Attach File"><Paperclip size={18} /></button>
-            <button className="input-attach-btn" onClick={() => folderInputRef.current?.click()} title="Attach Folder"><FolderPlus size={18} /></button>
           </div>
           <div className="input-col">
             <TextareaAutosize

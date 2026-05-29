@@ -342,3 +342,52 @@ export async function streamChat({ providerId, modelId, messages, apiKeys, onChu
     }
   }
 }
+
+/** Generate a complete text response (non-streaming). Accepts an AbortSignal. */
+export async function generateText({ providerId, modelId, messages, apiKeys, signal }) {
+  const provider = PROVIDERS[providerId];
+  if (!provider) throw new Error('Unknown provider. Select a model first.');
+
+  const apiKey = apiKeys[providerId];
+  if (!apiKey) throw new Error('API key not configured. Add it in Settings or .env.');
+
+  const baseUrl = provider.baseUrl;
+  let retries = 3;
+  let delay = 1000;
+
+  while (retries >= 0) {
+    try {
+      if (signal?.aborted) throw new Error('AbortError');
+
+      const res = await fetch(`${baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: provider.getHeaders(apiKey),
+        body: JSON.stringify({ model: modelId, messages, stream: false, max_tokens: 4096, temperature: 0.7 }),
+        signal
+      });
+
+      if (!res.ok) {
+        if (res.status === 429 && retries > 0) {
+          await new Promise(r => setTimeout(r, delay));
+          delay *= 2;
+          retries--;
+          continue;
+        }
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error?.message || data.detail || `API error: ${res.status} ${res.statusText}`);
+      }
+
+      const data = await res.json();
+      return data.choices?.[0]?.message?.content || '';
+    } catch (err) {
+      if (err.name === 'AbortError' || signal?.aborted) throw err;
+      if (retries > 0 && !err.message.includes('API key')) {
+        await new Promise(r => setTimeout(r, delay));
+        delay *= 2;
+        retries--;
+        continue;
+      }
+      throw err;
+    }
+  }
+}
