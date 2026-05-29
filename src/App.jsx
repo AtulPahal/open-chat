@@ -56,6 +56,8 @@ export default function App() {
   const [currentModel, setCurrentModel] = useState(() => loadSettings().currentModel || '');
   const [modelPricingMode, setModelPricingMode] = useState(() => loadSettings().modelPricingMode || 'all');
   const [memory, setMemory] = useState(() => loadSettings().memory || '');
+  const [voiceURI, setVoiceURI] = useState(() => loadSettings().voiceURI || '');
+  const [voiceSpeed, setVoiceSpeed] = useState(() => loadSettings().voiceSpeed || 1);
   const [fetchedModels, setFetchedModels] = useState({});
   const [isGenerating, setIsGenerating] = useState(false);
   const [isDreaming, setIsDreaming] = useState(false);
@@ -80,8 +82,13 @@ export default function App() {
   useEffect(() => { currentModelRef.current = currentModel; }, [currentModel]);
   useEffect(() => { currentProviderRef.current = currentProvider; }, [currentProvider]);
   useEffect(() => { systemPromptRef.current = systemPrompt; }, [systemPrompt]);
+  useEffect(() => { systemPromptRef.current = systemPrompt; }, [systemPrompt]);
   useEffect(() => { isGeneratingRef.current = isGenerating; }, [isGenerating]);
   useEffect(() => { memoryRef.current = memory; }, [memory]);
+
+  useEffect(() => {
+    saveSettingsToLS({ apiKeys, systemPrompt, currentProvider, currentModel, modelPricingMode, memory, voiceURI, voiceSpeed });
+  }, [apiKeys, systemPrompt, currentProvider, currentModel, modelPricingMode, memory, voiceURI, voiceSpeed]);
 
   // Auto-select first model if none selected
   useEffect(() => {
@@ -559,7 +566,7 @@ Output ONLY the new consolidated memory as plain text, no markdown code blocks u
             <div className="chat-messages">
               {messages.map((msg, i) => (
                 <Message key={`${activeChatId}-${i}`} role={msg.role} content={msg.content} attachments={msg.attachments} timestamp={msg.timestamp}
-                  modelName={modelName} onCopy={handleCopy}
+                  modelName={modelName} onCopy={handleCopy} voiceURI={voiceURI} voiceSpeed={voiceSpeed}
                   onRegenerate={msg.role === 'assistant' && i === messages.length - 1 ? handleRegenerate : undefined} />
               ))}
               {isGenerating && <StreamingMessage content={streamingContent} modelName={modelName} />}
@@ -582,6 +589,8 @@ Output ONLY the new consolidated memory as plain text, no markdown code blocks u
         onExportChats={handleExportChats}
         onImportChats={handleImportChats}
         onClearChats={handleClearChats}
+        voiceURI={voiceURI} onVoiceChange={setVoiceURI}
+        voiceSpeed={voiceSpeed} onVoiceSpeedChange={setVoiceSpeed}
       />
     </div>
   );

@@ -68,7 +68,7 @@ const downloadAttachment = (att) => {
   if (revoke) URL.revokeObjectURL(url);
 };
 
-const Message = memo(function Message({ role, content, attachments, timestamp, modelName, onRegenerate }) {
+const Message = memo(function Message({ role, content, attachments, timestamp, modelName, onRegenerate, voiceURI, voiceSpeed }) {
   const isAssistant = role === 'assistant';
   const [isCopied, setIsCopied] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -86,6 +86,14 @@ const Message = memo(function Message({ role, content, attachments, timestamp, m
     } else {
       window.speechSynthesis.cancel(); // Cancel any ongoing speech
       const utterance = new SpeechSynthesisUtterance(content);
+      utterance.rate = voiceSpeed || 1;
+      if (voiceURI) {
+        const voices = window.speechSynthesis.getVoices();
+        const selectedVoice = voices.find(v => v.voiceURI === voiceURI);
+        if (selectedVoice) {
+          utterance.voice = selectedVoice;
+        }
+      }
       utterance.onend = () => setIsSpeaking(false);
       utterance.onerror = () => setIsSpeaking(false);
       window.speechSynthesis.speak(utterance);

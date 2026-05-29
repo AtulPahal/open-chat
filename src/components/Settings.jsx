@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Trash2 } from 'lucide-react';
 import { getAvailableModels, testConnection, getProviders } from '../lib/providers';
 import { showToast } from '../lib/toast';
@@ -11,13 +11,43 @@ export default function Settings({
   onDream, isDreaming,
   fetchedModels, pricingMode, onPricingModeChange,
   currentModel, currentProvider, onSelectModel,
-  onExportChats, onImportChats, onClearChats
+  onExportChats, onImportChats, onClearChats,
+  voiceURI, onVoiceChange, voiceSpeed, onVoiceSpeedChange
 }) {
   const [activeTab, setActiveTab] = useState('api-keys');
   const [testState, setTestState] = useState({});
   const [modelSearch, setModelSearch] = useState('');
   const [providerFilter, setProviderFilter] = useState('all');
   const importRef = useRef(null);
+  const [availableVoices, setAvailableVoices] = useState([]);
+  const [voiceSearch, setVoiceSearch] = useState('');
+
+  useEffect(() => {
+    const loadVoices = () => {
+      const allVoices = window.speechSynthesis.getVoices();
+      const noveltyVoices = ['Albert', 'Bad News', 'Bahh', 'Bells', 'Boing', 'Bubbles', 'Cellos', 'Deranged', 'Good News', 'Hysterical', 'Pipe Organ', 'Trinoids', 'Whisper', 'Zarvox', 'Superstar', 'Jester'];
+      
+      const goodVoices = allVoices.filter(v => 
+        (v.lang.startsWith('en') || v.lang.startsWith('hi')) && 
+        !noveltyVoices.some(nv => v.name.includes(nv))
+      ).sort((a, b) => {
+        const aIsIn = a.lang.includes('IN');
+        const bIsIn = b.lang.includes('IN');
+        if (aIsIn && !bIsIn) return -1;
+        if (!aIsIn && bIsIn) return 1;
+        
+        const aIsPremium = a.name.includes('Premium') || a.name.includes('Enhanced') || a.name.includes('Google') || a.name.includes('Neural');
+        const bIsPremium = b.name.includes('Premium') || b.name.includes('Enhanced') || b.name.includes('Google') || b.name.includes('Neural');
+        if (aIsPremium && !bIsPremium) return -1;
+        if (!aIsPremium && bIsPremium) return 1;
+        
+        return a.name.localeCompare(b.name);
+      });
+      setAvailableVoices(goodVoices);
+    };
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+  }, []);
 
   if (!isOpen) return null;
 
@@ -51,6 +81,21 @@ export default function Settings({
     if (file) { onImportChats(file); e.target.value = ''; }
   };
 
+  const handlePreviewVoice = () => {
+    if (!voiceURI) return showToast('Please select a voice first', 'error');
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance("Hello! I am ready to assist you.");
+    utterance.rate = voiceSpeed || 1;
+    const selectedVoice = availableVoices.find(v => v.voiceURI === voiceURI);
+    if (selectedVoice) utterance.voice = selectedVoice;
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const filteredVoices = availableVoices.filter(v => 
+    v.name.toLowerCase().includes(voiceSearch.toLowerCase()) || 
+    v.lang.toLowerCase().includes(voiceSearch.toLowerCase())
+  );
+
   return (
     <div className="settings-overlay" onClick={onClose}>
       <div className="settings-dialog" onClick={e => e.stopPropagation()}>
@@ -64,9 +109,9 @@ export default function Settings({
         </div>
 
         <div className="settings-tabs">
-          {['api-keys', 'models', 'general', 'memory'].map(tab => (
+          {['api-keys', 'models', 'general', 'memory', 'tts'].map(tab => (
             <button key={tab} className={`settings-tab${activeTab === tab ? ' active' : ''}`} onClick={() => setActiveTab(tab)}>
-              {tab === 'api-keys' ? 'API Keys' : tab === 'models' ? 'Models' : tab === 'memory' ? 'Memory' : 'General'}
+              {tab === 'api-keys' ? 'API Keys' : tab === 'models' ? 'Models' : tab === 'memory' ? 'Memory' : tab === 'tts' ? 'TTS' : 'General'}
             </button>
           ))}
         </div>
@@ -197,6 +242,54 @@ export default function Settings({
                   rows={10}
                   value={memory || ''} 
                   onChange={e => onMemoryChange(e.target.value)} 
+                />
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'tts' && (
+            <div className="settings-section">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-16)' }}>
+                <h3 className="settings-section-title" style={{ marginBottom: 0 }}>Text-to-Speech Settings</h3>
+                <button className="btn-secondary btn-sm" onClick={handlePreviewVoice} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  Preview Voice
+                </button>
+              </div>
+              
+              <div className="settings-field" style={{ marginBottom: 'var(--space-16)' }}>
+                <input 
+                  type="text" 
+                  className="settings-input" 
+                  placeholder="Search voices by name or language (e.g., 'en-IN')..." 
+                  value={voiceSearch} 
+                  onChange={e => setVoiceSearch(e.target.value)} 
+                />
+              </div>
+
+              <div className="settings-field">
+                <label className="settings-label">Select Voice</label>
+                <select className="settings-input" size={10} style={{ padding: '8px' }} value={voiceURI || ''} onChange={e => onVoiceChange(e.target.value)}>
+                  <option value="">Default System Voice</option>
+                  {filteredVoices.map(v => (
+                    <option key={v.voiceURI} value={v.voiceURI} style={{ padding: '4px' }}>
+                      {v.name} ({v.lang})
+                    </option>
+                  ))}
+                </select>
+                {filteredVoices.length === 0 && <p style={{ color: 'var(--color-text-tertiary)', marginTop: '8px', fontSize: '13px' }}>No voices match your search.</p>}
+              </div>
+
+              <div className="settings-field" style={{ marginTop: 'var(--space-16)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <label className="settings-label">Voice Speed: {voiceSpeed}x</label>
+                  <button className="btn-secondary btn-sm" style={{ padding: '2px 8px', fontSize: '11px' }} onClick={() => onVoiceSpeedChange(1)}>Reset</button>
+                </div>
+                <input 
+                  type="range" 
+                  min="0.5" max="2" step="0.1" 
+                  value={voiceSpeed} 
+                  onChange={e => onVoiceSpeedChange(parseFloat(e.target.value))} 
+                  style={{ width: '100%', marginTop: '8px' }}
                 />
               </div>
             </div>
