@@ -13,12 +13,14 @@ A premium, dark-themed AI chat interface built with **React + Vite** that connec
 - **Multi-Provider Support** — Connect to OpenRouter, OpenAI, Google Gemini, NVIDIA, Groq, Anthropic, and OpenCode via a single unified UI
 - **Dynamic Model Synchronization** — Automatically fetches and merges the latest models available from your configured API keys, keeping your dropdown always up-to-date
 - **Multimodal & Context Uploads** — Attach images or inject entire folders of code directly into your prompts seamlessly in your browser
+- **Dream Memory Consolidation** — AI automatically extracts facts and context from your past conversations to maintain persistent memory across sessions
+- **Native Text-to-Speech (TTS)** — Read messages aloud using premium OS voices. Includes speed control, voice preview, and smart search directly in settings
+- **Smart Message Actions** — One-click Copy, Listen, and Regenerate options seamlessly integrated into every assistant message
 - **Premium Models** — GPT-4o, Claude 3.5 Sonnet, Gemini 2.5, Llama 3.3, and DeepSeek V4
 - **Real-Time Streaming** — Responses stream in token-by-token via SSE
-- **Markdown Rendering** — Full GFM support with syntax-highlighted code blocks and one-click copy
+- **Markdown Rendering** — Full GFM support with syntax-highlighted code blocks
 - **Secure Architecture** — Strict CSP and safe markdown rendering to prevent XSS
 - **Chat History** — Persistent local storage with search, rename, and delete
-- **Keyboard Shortcuts** — `Ctrl+N` new chat, `Ctrl+/` toggle sidebar
 - **Dark Mode** — Linear-inspired design with glassmorphism, smooth gradients, and micro-animations
 
 ---
