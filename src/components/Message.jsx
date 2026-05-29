@@ -1,4 +1,4 @@
-import { useMemo, memo, useState } from 'react';
+import {  memo, useState } from 'react';
 import ReactMarkdown, { defaultUrlTransform } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeSanitize from 'rehype-sanitize';
@@ -15,7 +15,7 @@ function formatTime(dateStr) {
 
 
 
-const CodeBlock = ({ node, inline, className, children, ...props }) => {
+const CodeBlock = ({  inline, className, children, ...props }) => {
   const [copied, setCopied] = useState(false);
   const match = /language-(\w+)/.exec(className || '');
   const codeString = String(children).replace(/\n$/, '');
