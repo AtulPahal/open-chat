@@ -40,30 +40,20 @@ cd openchat
 npm install
 ```
 
-### 2. Configure API Keys
-
-Copy the example and add your key:
-
-```bash
-cp .env.example .env
-```
-
-Edit `.env`:
-
-```env
-# OpenRouter (https://openrouter.ai/keys)
-OPENROUTER_API_KEY=sk-or-v1-xxxxx
-```
-
-> **Tip:** You can also add keys at runtime via **Settings → API Keys** in the app.
-
-### 3. Run
+### 2. Run the App
 
 ```bash
 npm run dev
 ```
 
 Open [http://localhost:5173](http://localhost:5173)
+
+### 3. Configure API Keys
+
+1. Click the **Settings (Gear Icon)** in the bottom left of the app.
+2. Navigate to the **API Keys** tab.
+3. Enter your API keys for OpenRouter, OpenAI, Groq, etc.
+4. Your keys are securely saved in your browser's local storage and are never sent anywhere except directly to the AI providers.
 
 ---
 
@@ -89,8 +79,6 @@ Through OpenRouter, OpenChat supports top industry models out of the box:
 
 ```
 openchat/
-├── .env                          # API keys (gitignored)
-├── .env.example                  # Template for API keys
 ├── index.html                    # HTML entry point
 ├── package.json
 ├── vite.config.js
