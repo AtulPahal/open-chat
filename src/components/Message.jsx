@@ -5,7 +5,7 @@ import rehypeSanitize from 'rehype-sanitize';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { motion } from 'framer-motion';
-import { Copy, Check, RefreshCw, Bot, User, File, Image as ImageIcon } from 'lucide-react';
+import { Copy, Check, RefreshCw, Bot, User, File, Image as ImageIcon, Volume2, Square } from 'lucide-react';
 
 function formatTime(dateStr) {
   if (!dateStr) return '';
@@ -70,6 +70,28 @@ const downloadAttachment = (att) => {
 
 const Message = memo(function Message({ role, content, attachments, timestamp, modelName, onRegenerate }) {
   const isAssistant = role === 'assistant';
+  const [isCopied, setIsCopied] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(content);
+    setIsCopied(true);
+    setTimeout(() => setIsCopied(false), 2000);
+  };
+
+  const handleListen = () => {
+    if (isSpeaking) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+    } else {
+      window.speechSynthesis.cancel(); // Cancel any ongoing speech
+      const utterance = new SpeechSynthesisUtterance(content);
+      utterance.onend = () => setIsSpeaking(false);
+      utterance.onerror = () => setIsSpeaking(false);
+      window.speechSynthesis.speak(utterance);
+      setIsSpeaking(true);
+    }
+  };
 
   return (
     <motion.div 
@@ -112,11 +134,19 @@ const Message = memo(function Message({ role, content, attachments, timestamp, m
               </div>
             )}
           </div>
-          {isAssistant && onRegenerate && (
+          {isAssistant && (
             <div className="message-actions">
-              <button className="message-action-btn" title="Regenerate response" onClick={onRegenerate}>
-                <RefreshCw size={14} />
+              <button className="message-action-btn" title="Copy response" onClick={handleCopy}>
+                {isCopied ? <Check size={14} /> : <Copy size={14} />}
               </button>
+              <button className="message-action-btn" title={isSpeaking ? "Stop listening" : "Listen to response"} onClick={handleListen}>
+                {isSpeaking ? <Square size={14} /> : <Volume2 size={14} />}
+              </button>
+              {onRegenerate && (
+                <button className="message-action-btn" title="Regenerate response" onClick={onRegenerate}>
+                  <RefreshCw size={14} />
+                </button>
+              )}
             </div>
           )}
         </div>
