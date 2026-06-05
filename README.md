@@ -1,4 +1,4 @@
-# OpenChat — API AI Assistant
+# OpenChat — API AI Assistant 
 
 A premium, dark-themed AI chat interface built with **React + Vite** that connects to OpenRouter. Access top-tier models like GPT-4o, Claude 3.5 Sonnet, and DeepSeek all from one sleek UI.
 
