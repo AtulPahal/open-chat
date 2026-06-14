@@ -5,7 +5,7 @@ import rehypeSanitize from 'rehype-sanitize';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { motion } from 'framer-motion';
-import { Copy, Check, RefreshCw, Bot, User, File, Image as ImageIcon, Volume2, Square } from 'lucide-react';
+import { Copy, Check, RefreshCw, Bot, User, File, Volume2, Square } from 'lucide-react';
 
 function formatTime(dateStr) {
   if (!dateStr) return '';

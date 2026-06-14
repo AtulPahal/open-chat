@@ -1,13 +1,9 @@
-/* ============================================================
-   OpenChat — Design System & Global Styles
-   Linear-inspired dark theme
-   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap');
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
-/* ============================================================
-   1. DESIGN TOKENS
-   ============================================================ */
+/*root*/
 :root {
   --color-bg: #08090a;
   --color-surface: #0f1011;
@@ -73,9 +69,7 @@
   --chat-max-width: 780px;
 }
 
-/* ============================================================
-   2. RESET & BASE
-   ============================================================ */
+
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
 html {
@@ -85,6 +79,9 @@ html {
 }
 
 body {
+  font-family: 'Inter',  'Poppins', -apple-system, BlinkMacSystemFont, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   font-family: var(--font-family);
   font-feature-settings: var(--font-feature);
   font-size: var(--text-body-md);
@@ -111,18 +108,15 @@ input, textarea, select { font-family: inherit; font-size: inherit; color: inher
 ul, ol { list-style: none; }
 img, svg { display: block; max-width: 100%; }
 
-/* ============================================================
-   3. SCROLLBAR
-   ============================================================ */
+
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: var(--radius-full); }
 ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.18); }
 * { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.1) transparent; }
 
-/* ============================================================
-   4. APP LAYOUT
-   ============================================================ */
+
+/*layout pattern*/
 .app {
   display: grid;
   grid-template-columns: var(--sidebar-width) 1fr;
@@ -139,9 +133,7 @@ img, svg { display: block; max-width: 100%; }
   grid-template-columns: 0px 1fr;
 }
 
-/* ============================================================
-   5. SIDEBAR
-   ============================================================ */
+
 .sidebar {
   display: flex;
   flex-direction: column;
@@ -311,10 +303,12 @@ img, svg { display: block; max-width: 100%; }
 .sidebar-resizer:hover, .app.is-resizing .sidebar-resizer {
   background-color: transparent;
 }
-
-.sidebar-user {
+.sidebar-option-button {
   display: flex; align-items: center; gap: var(--space-8);
-  padding: var(--space-8); border-radius: var(--radius-md);
+  margin: 4px;
+  padding: 3px;
+  margin: 2px;
+  border-radius: 16px;
   cursor: pointer; transition: background-color var(--transition-fast);
 }
 .sidebar-user:hover { background-color: var(--color-surface-hover); }
@@ -903,4 +897,64 @@ img, svg { display: block; max-width: 100%; }
   display: flex;
   flex-direction: column;
   flex: 1;
+}
+
+
+
+/*sidebar footer */
+
+.sidebar-footer {
+  padding: 8px;
+  border-top: 1px solid #110908;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-family: 'Inter', sans-serif;
+}
+
+.sidebar-footer-button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 100%;
+  text-align: left;
+  color: #E8D2CF;
+  font-size: 12px;
+  font-family: 'Inter', sans-serif;
+  font-weight: 600;
+}
+
+.sidebar-footer-button:hover {
+  background: var(--color-surface-hover);
+}
+
+.sidebar-footer-button.is-dreaming {
+  background: rgba(var(--color-primary-rgb), 0.1);
+  color: var(--color-primary);
+}
+
+.sidebar-footer-button-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
+}
+
+.sidebar-footer-button-text {
+ color: #E8D2CF;
+  overflow: hidden;
+  white-space: nowrap;
+  font-size: 14px;
+  font-family: 'Poppins', sans-serif;
+  letter-spacing: 0.5px;
 }

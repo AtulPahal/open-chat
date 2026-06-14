@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { Settings, Star } from 'lucide-react';
 
 function getDateGroup(dateStr) {
   const date = new Date(dateStr);
@@ -74,6 +75,7 @@ export default function Sidebar({
         </button>
       </div>
 
+
       <button className="new-chat-btn" onClick={onNewChat} title="New chat (Ctrl+N)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <line x1="12" y1="5" x2="12" y2="19"/>
@@ -137,6 +139,8 @@ export default function Sidebar({
             </div>
           )}
 
+
+
           {groupOrder.map(groupName => {
             const groupChats = groups[groupName];
             if (!groupChats || groupChats.length === 0) return null;
@@ -192,29 +196,39 @@ export default function Sidebar({
         </div>
       </div>
 
+
       <div className="sidebar-footer">
-        <div className="sidebar-user" onClick={onDream} title="Consolidate Memory (Dream)">
-          <div className="sidebar-avatar" style={{ background: 'rgba(255, 255, 255, 0.1)', color: 'var(--color-text)' }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3l1.9 5.8 1.9-5.8a2 2 0 0 1 1.3-1.3l5.8-1.9-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/>
-            </svg>
+        {/* Dream button */}
+        <button
+          className={`sidebar-footer-button ${isDreaming ? 'is-dreaming' : ''}`}
+          onClick={onDream}
+          title="Consolidate Memory (Dream)"
+        >
+          <div className="sidebar-footer-button-icon">
+            <Star size={16} color="#E8D2CF" strokeWidth={1} />
           </div>
-          <span className="sidebar-user-name" style={{ color: isDreaming ? 'var(--color-primary)' : 'inherit' }}>
+          <span className="sidebar-footer-button-text">
             {isDreaming ? 'Dreaming...' : 'Dream'}
           </span>
-        </div>
-        <div className="sidebar-user" onClick={onOpenSettings} title="Settings">
-          <div className="sidebar-avatar">U</div>
-          <span className="sidebar-user-name">Settings</span>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--color-text-tertiary)', flexShrink: 0 }}>
-            <circle cx="12" cy="12" r="3"/>
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-          </svg>
-        </div>
+        </button>
+
+        {/* Settings button */}
+        <button
+          className="sidebar-footer-button"
+          onClick={onOpenSettings}
+          title="Settings"
+        >
+          <div className="sidebar-footer-button-icon">
+            <Settings size={16} color="#F7EFEE" strokeWidth={2} />
+          </div>
+          <span className="sidebar-footer-button-text">
+            Settings
+          </span>
+        </button>
       </div>
-      
-      <div 
-        className="sidebar-resizer" 
+      {/* side bar risizer */}
+      <div
+        className="sidebar-resizer"
         onMouseDown={onResizeStart}
         title="Drag to resize"
       />
