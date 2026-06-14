@@ -8,6 +8,12 @@ A premium, dark-themed AI chat interface built with **React + Vite** that connec
 
 ---
 
+## Preview
+
+<div align="center">
+  <img src=".github/assets/homepage.png" alt="OpenChat - Ai Playground" width="600" />
+</div>
+
 ## ✨ Features
 
 - **Multi-Provider Support** — Connect to OpenRouter, OpenAI, Google Gemini, NVIDIA, Groq, Anthropic, and OpenCode via a single unified UI
